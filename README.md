@@ -9,6 +9,10 @@
 - Python 3.11+
 - MongoDB数据库（需在本地运行，端口27017）
 - 必要的Python库：tkinter, pymongo, tkinterdnd2
+- 使用pyinstaller用以下命令打包exe可执行文件
+```
+pyinstaller --noconfirm --onefile --console --icon "/path-to-yout-ico.ico" --name "app-name" --hide-console "hide-late"  "/path-to-main.py"
+```
 
 ## 主要功能
 
