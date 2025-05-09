@@ -108,7 +108,7 @@ class TagDialog(BaseDialog):
             self.suggestion_buttons.append(btn)
 
         # Update suggestions as user types
-        self.tag_var.trace_add("w", lambda n, i, m, v=self.tag_var: self._update_tag_suggestions(v))
+        self.tag_var.trace_add("write", lambda n, i, m, v=self.tag_var: self._update_tag_suggestions(v))
 
         # Buttons
         btn_frame = ttk.Frame(self.dialog)
