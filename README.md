@@ -7,13 +7,20 @@
 ## 系统要求
 
 - Python 3.11+
-- MongoDB数据库（需在本地运行，端口27017）
-- 必要的Python库：tkinter, pymongo, tkinterdnd2
+- MongoDB数据库
+  - 直接在本地运行（端口27017）
+  - 或通过Docker自动启动（会自动检测并启动Docker容器）
+- 必要的Python库：
+  ```
+  pymongo==4.12.1
+  tkinterdnd2==0.4.3
+  pyinstaller==6.13.0 (如需打包为可执行文件)
+  ```
+
 - 使用pyinstaller用以下命令打包exe可执行文件
 ```
-pyinstaller --noconfirm --onefile --console --icon "/path-to-yout-ico.ico" --name "app-name" --hide-console "hide-late"  "/path-to-main.py"
+pyinstaller --noconfirm --onefile --windowed --icon "/path-to-yout-ico.ico" --name "app-name" "/path-to-main.py"
 ```
-- 注意：需要Docker已安装并配置好，且当前用户有权限运行 docker 命令
 
 ## 主要功能
 
@@ -31,9 +38,11 @@ pyinstaller --noconfirm --onefile --console --icon "/path-to-yout-ico.ico" --nam
 
 在"标签管理"标签页中，您可以：
 
-1. **查看热门标签**：显示使用最多的标签
-2. **按标签搜索**：查找带有特定标签的所有视频
-3. **查找未标记视频**：在指定文件夹中找出尚未添加标签的视频
+1. **查看热门标签**：显示使用最多的标签（最多50个）
+2. **按标签搜索**：查找带有指定标签的所有视频
+   - 支持单标签搜索
+   - 支持多标签联合搜索（同时包含多个指定标签的视频）
+3. **标签建议功能**：输入时自动提供相关标签建议
 
 ## 使用方法
 
@@ -66,17 +75,11 @@ pyinstaller --noconfirm --onefile --console --icon "/path-to-yout-ico.ico" --nam
 
 1. 切换到"标签管理"标签页
 2. 在"按标签搜索"部分输入标签名称
+   - 单标签搜索: 直接输入标签名称
+   - 多标签搜索: 输入多个标签，用逗号分隔（例如：动作,冒险,2023）
+   - 标签输入时会有智能提示建议
 3. 点击"搜索"按钮
 4. 结果将在文件浏览页面中显示
-
-### 查找未标记视频
-
-1. 切换到"标签管理"标签页
-2. 在"未标记视频"部分：
-   - 点击"添加文件夹"按钮选择要搜索的文件夹
-   - 可以添加多个文件夹
-   - 点击"查找未标记视频"按钮
-3. 在结果列表中选择视频，然后点击"标记选中视频"按钮为它们添加标签
 
 ## 常见操作
 
@@ -94,6 +97,12 @@ pyinstaller --noconfirm --onefile --console --icon "/path-to-yout-ico.ico" --nam
 
 - **Delete键**：删除选中的文件或文件夹
 - **双击**：打开文件或进入文件夹
+
+## 数据库集成
+
+应用程序使用MongoDB存储标签信息。如果本地未运行MongoDB，应用程序会尝试使用Docker创建和启动MongoDB容器。
+
+当应用程序关闭时，如果是由应用程序自动启动的MongoDB Docker容器，该容器将被自动关闭。
 
 
 

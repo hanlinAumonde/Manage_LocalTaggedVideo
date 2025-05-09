@@ -15,6 +15,7 @@ class LanguageManager:
                 "back": "返回",
                 "new_folder": "新建文件夹",
                 "search": "搜索:",
+                "search_in_currentDir": "在当前目录中搜索文件（夹）名",
                 "search_btn": "搜索",
                 "clear_search": "清除搜索",
                 
@@ -39,14 +40,6 @@ class LanguageManager:
                 
                 # Search by tag section
                 "search_by_tag": "按标签搜索:",
-                
-                # Untagged videos section
-                "untagged_videos": "未标记视频",
-                "add_folder": "添加文件夹",
-                "remove_folder": "移除文件夹",
-                "find_untagged": "查找未标记视频",
-                "tag_selected": "标记选中视频",
-                "path": "路径",
                 
                 # Dialog texts
                 "folder_name": "文件夹名称:",
@@ -74,10 +67,8 @@ class LanguageManager:
                 "no_results": "无结果",
                 "no_videos_with_tag": "未找到带有标签 '{}' 的视频。",
                 "tag_search_results": "标签搜索结果: {}",
-                "no_folders": "无文件夹",
-                "add_folders_to_search": "请添加要搜索的文件夹。",
-                "error_finding_untagged": "查找未标记视频时出错: ",
-                "no_untagged_videos": "在选定的文件夹中未找到未标记的视频。",
+                "multi_tag_search_hint": "输入多个标签以逗号分隔进行搜索",
+                "multi_tag_search_results": "复合标签搜索结果: {}",
                 "confirm_delete": "确认删除",
                 "confirm_delete_msg": "您确定要删除这个{}吗?",
                 "delete_failed": "删除失败: ",
@@ -100,6 +91,7 @@ class LanguageManager:
                 "back": "Back",
                 "new_folder": "New Folder",
                 "search": "Search:",
+                "search_in_currentDir": "Search file (folder) names in current directory",
                 "search_btn": "Search",
                 "clear_search": "Clear Search",
                 
@@ -124,14 +116,6 @@ class LanguageManager:
                 
                 # Search by tag section
                 "search_by_tag": "Search by Tag:",
-                
-                # Untagged videos section
-                "untagged_videos": "Untagged Videos",
-                "add_folder": "Add Folder",
-                "remove_folder": "Remove Folder",
-                "find_untagged": "Find Untagged Videos",
-                "tag_selected": "Tag Selected Videos",
-                "path": "Path",
                 
                 # Dialog texts
                 "folder_name": "Folder Name:",
@@ -159,10 +143,8 @@ class LanguageManager:
                 "no_results": "No Results",
                 "no_videos_with_tag": "No videos found with tag '{}'.",
                 "tag_search_results": "Tag Search Results: {}",
-                "no_folders": "No Folders",
-                "add_folders_to_search": "Please add folders to search.",
-                "error_finding_untagged": "Error finding untagged videos: ",
-                "no_untagged_videos": "No untagged videos found in the selected folders.",
+                "multi_tag_search_hint": "Enter multiple tags separated by commas to search",
+                "multi_tag_search_results": "Multi-Tag Search Results: {}",
                 "confirm_delete": "Confirm Delete",
                 "confirm_delete_msg": "Are you sure you want to delete this {}?",
                 "delete_failed": "Delete failed: ",
@@ -176,7 +158,7 @@ class LanguageManager:
                 "English": "English"
             }
         }
-    
+
     def get_text(self, key):
         """Get the translated text for a key in current language"""
         return self.translations.get(self.current_language, {}).get(key, key)

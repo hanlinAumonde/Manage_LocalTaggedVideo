@@ -77,33 +77,47 @@ class DBManager:
         _, ext = os.path.splitext(filepath.lower())
         return ext in VIDEO_EXTENSIONS
 
-    def get_top_tags(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_top_tags(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Return the top N most used tags"""
         return list(self.tags_collection.find().sort("count", -1).limit(limit))
 
-    def search_similar_tags(self, query: str, limit: int = 5) -> List[str]:
-        """Find tags that match or are similar to the query"""
-        # First look for exact matches or tags that start with the query
-        regex_pattern = f"^{query}"
-        exact_matches = list(self.tags_collection.find(
-            {"name": {"$regex": regex_pattern, "$options": "i"}},
+    def search_similar_tags(self, query: str, limit: int = 10) -> List[str]:
+        """Find tags that match or are similar to the query
+        
+        Args:
+            query: Text to search for in tags
+            limit: Maximum number of suggestions to return (default: 10)
+        
+        Returns:
+            List of tag names that match the query
+        """
+        if not query:
+            # If query is empty, just return top tags
+            top_tags = self.get_top_tags(limit)
+            return [tag["name"] for tag in top_tags]
+        
+        # First, look for tags that start with the query (higher priority)
+        prefix_pattern = f"^{query}"
+        prefix_matches = list(self.tags_collection.find(
+            {"name": {"$regex": prefix_pattern, "$options": "i"}},
             {"name": 1, "_id": 0}
-        ).limit(limit))
+        ).sort("count", -1).limit(limit))
 
-        exact_match_names = [tag["name"] for tag in exact_matches]
-
-        # If we don't have enough matches, look for tags that contain the query
-        if len(exact_match_names) < limit:
+        prefix_match_names = [tag["name"] for tag in prefix_matches]
+        
+        # If we haven't reached the limit, look for tags that contain the query anywhere
+        remaining_slots = limit - len(prefix_match_names)
+        if remaining_slots > 0:
             contains_pattern = f".*{query}.*"
             contains_matches = list(self.tags_collection.find(
-                {"name": {"$regex": contains_pattern, "$options": "i"},
-                 "name": {"$nin": exact_match_names}},
+                {"name": {"$regex": contains_pattern, "$options": "si", "$nin": prefix_match_names}},  # Exclude tags we already found
                 {"name": 1, "_id": 0}
-            ).limit(limit - len(exact_match_names)))
-
-            exact_match_names.extend([tag["name"] for tag in contains_matches])
-
-        return exact_match_names
+            ).sort("count", -1).limit(remaining_slots))
+            
+            # Combine both lists - prefix matches first, then contains matches
+            prefix_match_names.extend([tag["name"] for tag in contains_matches])
+        
+        return prefix_match_names
 
     def add_or_update_tags(self, file_path: str, tags: List[str], append: bool = True) -> None:
         """Add tags to a video file, update tag counts, and store file info
@@ -259,39 +273,6 @@ class DBManager:
 
         return result_list
 
-    def get_untagged_videos(self, folder_paths: List[str]) -> List[FileInfoItem]:
-        """Find all untagged videos in the given folders"""
-        untagged_videos = []
-
-        for folder_path in folder_paths:
-            folder_path = self.get_path_standard_format(folder_path)
-
-            # Get all videos in the folder and subfolders
-            for root, _, files in os.walk(folder_path):
-                for file in files:
-                    if self.is_video_file(file):
-                        file_path = self.get_path_standard_format(os.path.join(root, file))
-
-                        # Check if this video exists in database and has tags
-                        video_doc = self.videos_collection.find_one({"path": file_path})
-
-                        # Add to untagged list if it doesn't exist or has empty tags
-                        if not video_doc or not video_doc.get("tags"):
-                            try:
-                                file_stat = os.stat(file_path)
-                                untagged_videos.append(FileInfoItem(
-                                    file,
-                                    file_path,
-                                    file_stat.st_size,
-                                    file_stat.st_mtime,
-                                    False,
-                                    []
-                                ))
-                            except OSError as e:
-                                print(f"Error getting file info: {e}, filename: {file}, path: {file_path}")
-
-        return untagged_videos
-
     def find_videos_by_tag(self, tag: str) -> List[FileInfoItem]:
         """Find all videos that have the specified tag"""
         videos = []
@@ -304,6 +285,32 @@ class DBManager:
             if os.path.exists(doc["path"]):
                 videos.append(FileInfoItem.from_dict(doc))
 
+        return videos
+
+    def find_videos_by_tags(self, tags: List[str]) -> List[FileInfoItem]:
+        """Find all videos that have all the specified tags (AND operation)
+
+        Args:
+            tags: List of tags that videos must all have
+
+        Returns:
+            List of FileInfoItem objects for videos with all specified tags
+        """
+        if not tags:
+            return []
+
+        # Create a query that finds documents containing all the specified tags
+        query = {"tags": {"$all": tags}}
+        
+        # Find all videos matching the query
+        video_docs = self.videos_collection.find(query)
+        
+        videos = []
+        for doc in video_docs:
+            # Verify the file still exists
+            if os.path.exists(doc["path"]):
+                videos.append(FileInfoItem.from_dict(doc))
+                
         return videos
 
     def get_tags_for_file(self, file_path: str) -> List[str]:

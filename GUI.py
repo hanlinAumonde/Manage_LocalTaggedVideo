@@ -27,7 +27,7 @@ class VideoTagApp:
 
         # Current path for file browsing
         self.current_path = tk.StringVar()
-        self.current_path.set("Please select a directory")
+        self.current_path.set("")
         self.first_path = self.current_path.get()
 
         # Files list for current directory
@@ -156,7 +156,7 @@ class VideoTagApp:
         search_frame.pack(fill=tk.X, padx=10, pady=5)
 
         ttk.Label(search_frame, text=self.lang_manager.get_text("search")).pack(side=tk.LEFT, padx=(0, 5))
-        self.search_var = tk.StringVar()
+        self.search_var = tk.StringVar(value=self.lang_manager.get_text("search_in_currentDir"))
         search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=30)
         search_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
@@ -212,7 +212,7 @@ class VideoTagApp:
         # Register drag and drop (initially disabled)
         self.tree.drop_target_register(DND_FILES)
         self.tree.dnd_bind('<<Drop>>', self.handle_drop)
-        self.set_drop_state(False)
+        self.set_drop_state(self.file_list != []) 
 
         # Button frame for tagging
         tag_buttons_frame = ttk.Frame(self.browse_tab)
@@ -236,72 +236,52 @@ class VideoTagApp:
         for widget in self.tag_management_tab.winfo_children():
             widget.destroy()
             
-        # 创建一个框架作为容器，确保它填充整个标签页
+        # create main frame for tag management without canvas scrolling
         main_frame = ttk.Frame(self.tag_management_tab)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # 创建Canvas和滚动条
-        canvas_frame = ttk.Frame(main_frame)
-        canvas_frame.pack(fill=tk.BOTH, expand=True)
-
-        canvas = tk.Canvas(canvas_frame)
-        vsb = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
-        hsb = ttk.Scrollbar(canvas_frame, orient="horizontal", command=canvas.xview)
-
-        # 配置Canvas的滚动区域
-        canvas.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-
-        # 放置滚动条和Canvas，确保Canvas填充整个区域
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        hsb.pack(side=tk.BOTTOM, fill=tk.X)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        # 内容框架
-        content_frame = ttk.Frame(canvas)
-
-        # 创建窗口并将内容框架放入canvas
-        canvas_window = canvas.create_window((0, 0), window=content_frame, anchor="nw")
-
-        # 绑定Canvas大小变化事件，确保内容框架宽度与Canvas匹配
-        def configure_window(event):
-            # 更新滚动区域以包含整个内容
-            canvas.configure(scrollregion=canvas.bbox("all"))
-            # 更新内容框架宽度以匹配Canvas宽度
-            canvas.itemconfig(canvas_window, width=canvas.winfo_width())
-
-        canvas.bind('<Configure>', configure_window)
-        content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        # 添加鼠标滚轮支持
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(-1 * (e.delta // 120), "units"))
-        canvas.bind_all("<Shift-MouseWheel>", lambda e: canvas.xview_scroll(-1 * (e.delta // 120), "units"))
-
-        # -- 以下是内容部分 --
-
         # Top Tags section
-        top_tags_frame = ttk.Frame(content_frame)
+        top_tags_frame = ttk.Frame(main_frame)
         top_tags_frame.pack(fill=tk.X, pady=10)
 
         ttk.Label(top_tags_frame, text=self.lang_manager.get_text("top_tags"), font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W)
 
-        # Reduce the height of the Treeview
-        self.top_tags_tree = ttk.Treeview(top_tags_frame, columns=("name", "count"),
-                                        show="headings", height=5)
+        # Create horizontal scrollbar for top tags
+        top_tags_tree_frame = ttk.Frame(top_tags_frame)
+        top_tags_tree_frame.pack(fill=tk.X, expand=False, pady=5)
+        
+        vsb = ttk.Scrollbar(top_tags_tree_frame, orient="vertical")
+        hsb = ttk.Scrollbar(top_tags_tree_frame, orient="horizontal")
+        
+        # Increase height to show more tags at once
+        self.top_tags_tree = ttk.Treeview(top_tags_tree_frame, columns=("name", "count"),
+                                        show="headings", height=8,
+                                        yscrollcommand=vsb.set, xscrollcommand=hsb.set)
 
+        vsb.config(command=self.top_tags_tree.yview)
+        hsb.config(command=self.top_tags_tree.xview)
+        
         self.top_tags_tree.heading("name", text=self.lang_manager.get_text("tag_name"))
         self.top_tags_tree.heading("count", text=self.lang_manager.get_text("usage_count"))
 
         self.top_tags_tree.column("name", width=200)
         self.top_tags_tree.column("count", width=100)
 
-        self.top_tags_tree.pack(fill=tk.X, expand=True, pady=5)
+        # Grid layout for treeview and scrollbars
+        self.top_tags_tree.grid(row=0, column=0, sticky='nsew')
+        vsb.grid(row=0, column=1, sticky='ns')
+        hsb.grid(row=1, column=0, sticky='ew')
+        
+        top_tags_tree_frame.grid_columnconfigure(0, weight=1)
+        top_tags_tree_frame.grid_rowconfigure(0, weight=1)
+        
         self.top_tags_tree.bind("<Double-1>", self.on_tag_double_click)
 
         refresh_btn = ttk.Button(top_tags_frame, text=self.lang_manager.get_text("refresh"), command=self.refresh_top_tags)
         refresh_btn.pack(anchor=tk.E, pady=5)
 
         # Search by tag section
-        search_tag_frame = ttk.Frame(content_frame)
+        search_tag_frame = ttk.Frame(main_frame)
         search_tag_frame.pack(fill=tk.X, pady=10)
 
         ttk.Label(search_tag_frame, text=self.lang_manager.get_text("search_by_tag"), font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W)
@@ -309,70 +289,46 @@ class VideoTagApp:
         self.tag_search_var = tk.StringVar()
         tag_search_entry = ttk.Entry(search_tag_frame, textvariable=self.tag_search_var)
         tag_search_entry.pack(fill=tk.X, pady=5)
+        
+        # Add help text for multiple tag search
+        ttk.Label(search_tag_frame, text=self.lang_manager.get_text("multi_tag_search_hint"),
+                  font=('Segoe UI', 8)).pack(anchor=tk.W, pady=(0, 5))
+        
+        # Add tag suggestions frame
+        suggestion_frame = ttk.Frame(search_tag_frame)
+        suggestion_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        # Create suggestion buttons with the same layout as in tag dialog
+        self.search_suggestion_buttons = []
+        max_width = 10  # Default minimum width
+        
+        # Get top tags to calculate button width
+        top_tags = self.db_manager.get_top_tags()
+        for tag_info in top_tags:
+            tag_name = tag_info["name"]
+            tag_width = len(tag_name) + 2  # Add a little padding
+            max_width = max(max_width, tag_width)
+        
+        # Store for later use in update_search_suggestions
+        self.search_suggestion_max_width = max_width
+        
+        # Create suggestion buttons - still using 2 rows of 5 buttons for simplicity
+        for i in range(10):
+            row = i // 5
+            col = i % 5
+            btn = ttk.Button(suggestion_frame, text="", width=max_width, state=tk.DISABLED)
+            btn.grid(row=row, column=col, padx=2, pady=2, sticky=tk.W)
+            self.search_suggestion_buttons.append(btn)
+        
+        # Connect the tag_search_var to the update function
+        self.tag_search_var.trace("w", lambda n, i, m, v=self.tag_search_var: self.update_search_suggestions(v))
 
+        # Search button
         search_tag_btn = ttk.Button(search_tag_frame, text=self.lang_manager.get_text("search_btn"), style="Accent.TButton",
                                   command=lambda: self.search_videos_by_tag(self.tag_search_var.get()))
         search_tag_btn.pack(fill=tk.X, pady=5)
 
-        # Untagged videos section
-        untagged_frame = ttk.Frame(content_frame)
-        untagged_frame.pack(fill=tk.BOTH, expand=True, pady=10)
-
-        ttk.Label(untagged_frame, text=self.lang_manager.get_text("untagged_videos"), font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W)
-
-        folders_frame = ttk.Frame(untagged_frame)
-        folders_frame.pack(fill=tk.X, pady=5)
-
-        self.folder_paths = []
-        self.folder_listbox = tk.Listbox(folders_frame, height=3)
-        self.folder_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        folder_btn_frame = ttk.Frame(folders_frame)
-        folder_btn_frame.pack(side=tk.LEFT, padx=5)
-
-        add_folder_btn = ttk.Button(folder_btn_frame, text=self.lang_manager.get_text("add_folder"),
-                                  command=self.add_folder_for_untagged)
-        add_folder_btn.pack(fill=tk.X, pady=2)
-
-        remove_folder_btn = ttk.Button(folder_btn_frame, text=self.lang_manager.get_text("remove_folder"),
-                                     command=self.remove_folder_for_untagged)
-        remove_folder_btn.pack(fill=tk.X, pady=2)
-
-        find_untagged_btn = ttk.Button(untagged_frame, text=self.lang_manager.get_text("find_untagged"),
-                                     command=self.find_untagged_videos)
-        find_untagged_btn.pack(fill=tk.X, pady=5)
-
-        # 确保未标记视频的树形视图占据剩余空间
-        tree_frame = ttk.Frame(untagged_frame)
-        tree_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-
-        self.untagged_tree = ttk.Treeview(tree_frame, columns=("name", "path", "size", "time"),
-                                        show="headings", height=10)
-
-        self.untagged_tree.heading("name", text=self.lang_manager.get_text("name"))
-        self.untagged_tree.heading("path", text=self.lang_manager.get_text("path"))
-        self.untagged_tree.heading("size", text=self.lang_manager.get_text("size"))
-        self.untagged_tree.heading("time", text=self.lang_manager.get_text("time"))
-
-        self.untagged_tree.column("name", width=200)
-        self.untagged_tree.column("path", width=300)
-        self.untagged_tree.column("size", width=100)
-        self.untagged_tree.column("time", width=150)
-
-        # 添加滚动条到未标记视频的树形视图
-        untagged_vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.untagged_tree.yview)
-        untagged_hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.untagged_tree.xview)
-        self.untagged_tree.configure(yscrollcommand=untagged_vsb.set, xscrollcommand=untagged_hsb.set)
-
-        untagged_vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        untagged_hsb.pack(side=tk.BOTTOM, fill=tk.X)
-        self.untagged_tree.pack(fill=tk.BOTH, expand=True)
-
-        tag_untagged_btn = ttk.Button(untagged_frame, text=self.lang_manager.get_text("tag_selected"), style="Accent.TButton",
-                                    command=self.tag_selected_untagged)
-        tag_untagged_btn.pack(fill=tk.X, pady=5)
-
-        # 初始加载热门标签
+        # initialize the tag management tab
         self.refresh_top_tags()
 
     def select_directory(self):
@@ -586,7 +542,7 @@ class VideoTagApp:
                 self.update_treeview()
 
             except Exception as e:
-                messagebox.showerror("错误", f"移动文件失败: {str(e)}")
+                messagebox.showerror("Error", f"Failed to move file: {str(e)}")
 
     def set_drop_state(self, enabled):
         """Enable or disable drag and drop functionality"""
@@ -679,13 +635,13 @@ class VideoTagApp:
         """Show dialog to add tags to files"""
         dialog = tk.Toplevel(self.root)
         dialog.title(self.lang_manager.get_text("add_tags_to").format(len(file_paths)))
-        dialog.geometry("500x450")  # Made taller to accommodate the new checkbox
+        dialog.geometry("500x500")  # Initial geometry, will be updated later
         dialog.transient(self.root)
         dialog.grab_set()
-
-        # Center dialog
+        
+        # Center dialog initially
         x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (500 // 2)
-        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (450 // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (500 // 2)
         dialog.geometry(f"+{x}+{y}")
 
         # File info
@@ -730,12 +686,21 @@ class VideoTagApp:
 
         # Get top tags
         top_tags = self.db_manager.get_top_tags(10)
+        
+        # Calculate maximum width needed for buttons based on tag content
+        max_width = 10  # Default minimum width
+        for tag_info in top_tags:
+            tag_name = tag_info["name"]
+            tag_width = len(tag_name) + 2  # Add a little padding
+            max_width = max(max_width, tag_width)
+        
+        # Create buttons with consistent width
         row, col = 0, 0
         for tag_info in top_tags:
             tag_name = tag_info["name"]
 
-            # Create tag button
-            tag_btn = ttk.Button(tags_frame, text=tag_name,
+            # Create tag button with calculated width
+            tag_btn = ttk.Button(tags_frame, text=tag_name, width=max_width,
                                command=lambda t=tag_name: add_tag_to_entry(tag_var, t))
             tag_btn.grid(row=row, column=col, padx=2, pady=2, sticky=tk.W)
 
@@ -748,20 +713,24 @@ class VideoTagApp:
         # Tag suggestion based on typing
         ttk.Label(dialog, text=self.lang_manager.get_text("tag_suggestions")).pack(pady=(5, 0), padx=10, anchor=tk.W)
 
+        # Frame for suggestion buttons
         suggestion_frame = ttk.Frame(dialog)
         suggestion_frame.pack(pady=(0, 10), padx=10, fill=tk.X)
 
         # Track suggestion buttons for dynamic updates
         self.suggestion_buttons = []
-
-        # Create initial empty suggestion buttons
-        for i in range(5):
-            btn = ttk.Button(suggestion_frame, text="", state=tk.DISABLED)
-            btn.pack(side=tk.LEFT, padx=2)
+        self.suggestion_max_width = max_width
+        
+        # Create initial empty suggestion buttons with the same layout as top tags
+        for i in range(10):
+            row = i // 5
+            col = i % 5
+            btn = ttk.Button(suggestion_frame, text="", width=max_width, state=tk.DISABLED)
+            btn.grid(row=row, column=col, padx=2, pady=2)
             self.suggestion_buttons.append(btn)
 
         # Update suggestions as user types
-        tag_var.trace("w", lambda n, i, m, v=tag_var: self.update_tag_suggestions(v))
+        tag_var.trace_add("w", lambda n, i, m, v=tag_var: self.update_tag_suggestions(v))
 
         # Buttons
         btn_frame = ttk.Frame(dialog)
@@ -774,7 +743,30 @@ class VideoTagApp:
 
         # Bind Enter key (make sure it also uses the append value)
         dialog.bind("<Return>", lambda e: self.save_tags(file_paths, tag_var.get(), dialog, append_var.get()))
-    
+        
+        # Calculate optimal dialog width based on button size and dialog content
+        # Use the max button width, number of buttons per row, and padding
+        buttons_per_row = 5  # We're using 5 buttons per row
+        button_padding = 4   # 2px padding on each side
+        min_dialog_width = 500  # Minimum dialog width
+        
+        # Calculate width required by buttons
+        button_width_pixels = (max_width * 8) + button_padding  # Approximate character width in pixels
+        total_button_width = (button_width_pixels * buttons_per_row) + (button_padding * (buttons_per_row - 1))
+        
+        # Add padding for dialog borders (20px on each side)
+        optimal_width = max(min_dialog_width, total_button_width + 40)
+        
+        # Update dialog size, keeping the height
+        dialog.update()  # Make sure dialog is rendered before getting height
+        current_height = dialog.winfo_height()
+        dialog.geometry(f"{optimal_width}x{current_height}")
+        
+        # Re-center dialog with new width
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (optimal_width // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (current_height // 2)
+        dialog.geometry(f"+{x}+{y}")
+
     def update_tag_suggestions(self, tag_var):
         """Update tag suggestions based on current input"""
         text = tag_var.get()
@@ -784,7 +776,7 @@ class VideoTagApp:
             return
 
         # Get the last tag being typed
-        tags = [t.strip() for t in text.split(",")]
+        tags = [t.strip() for t in text.replace("，", ",").split(",")]
         current_tag = tags[-1].strip() if tags else ""
 
         if not current_tag:
@@ -794,7 +786,17 @@ class VideoTagApp:
 
         # Get suggestions
         suggestions = self.db_manager.search_similar_tags(current_tag)
-
+        
+        # Calculate the maximum width required for suggestions
+        max_width = self.suggestion_max_width  # Start with previously calculated width
+        for suggestion in suggestions:
+            suggestion_width = len(suggestion) + 2  # Add padding
+            max_width = max(max_width, suggestion_width)
+        
+        # Update all buttons to the new width for consistency
+        for btn in self.suggestion_buttons:
+            btn.config(width=max_width)
+        
         # Update buttons
         for i, btn in enumerate(self.suggestion_buttons):
             if i < len(suggestions):
@@ -813,7 +815,7 @@ class VideoTagApp:
             append: If True, append new tags to existing ones; if False, replace existing tags
         """
         # Parse tags
-        tags = [t.strip() for t in tag_text.split(",") if t.strip()]
+        tags = [t.strip() for t in tag_text.replace("，",",").split(",") if t.strip()]
 
         try:
             # Update each file
@@ -899,121 +901,83 @@ class VideoTagApp:
         self.search_videos_by_tag(tag_name)
 
     def search_videos_by_tag(self, tag):
-        """Search for videos with the given tag"""
+        """Search for videos with one or more tags"""
         if not tag.strip():
             messagebox.showinfo(self.lang_manager.get_text("missing_tag"), 
                               self.lang_manager.get_text("enter_search_tag"))
             return
 
+        # Split by comma to support multiple tag search
+        tags = [t.strip() for t in tag.replace("，",",").split(",") if t.strip()]
+        
         # Switch to browse tab
         self.notebook.select(self.browse_tab)
 
-        # Find videos with this tag
-        tagged_videos = self.db_manager.find_videos_by_tag(tag)
+        # Find videos with these tags
+        if len(tags) == 1:
+            # Single tag search
+            tagged_videos = self.db_manager.find_videos_by_tag(tags[0])
+            search_description = tags[0]
+        else:
+            # Multi-tag search (AND operation)
+            tagged_videos = self.db_manager.find_videos_by_tags(tags)
+            search_description = ", ".join(tags)
 
         if not tagged_videos:
-            messagebox.showinfo(self.lang_manager.get_text("no_results"), 
-                              self.lang_manager.get_text("no_videos_with_tag").format(tag))
+            if len(tags) == 1:
+                message = self.lang_manager.get_text("no_videos_with_tag").format(tags[0])
+            else:
+                message = self.lang_manager.get_text("no_videos_with_all_tags").format(", ".join(tags))
+            messagebox.showinfo(self.lang_manager.get_text("no_results"), message)
             return
 
         # Update current path for context
         self.path_before_search = self.current_path.get()
-        self.current_path.set(f"{self.lang_manager.get_text('tag_search_results').format(tag)}")
+        
+        # Set different messages for single vs multiple tag search
+        if len(tags) == 1:
+            self.current_path.set(f"{self.lang_manager.get_text('tag_search_results').format(search_description)}")
+        else:
+            self.current_path.set(f"{self.lang_manager.get_text('multi_tag_search_results').format(search_description)}")
 
         # Update file list and view
         self.file_list = tagged_videos
         self.update_treeview()
-    
-    def add_folder_for_untagged(self):
-        """Add a folder to search for untagged videos"""
-        folder = filedialog.askdirectory()
-        if folder:
-            # Add to list if not already there
-            if folder not in self.folder_paths:
-                self.folder_paths.append(folder)
-                self.folder_listbox.insert(tk.END, folder)
 
-    def remove_folder_for_untagged(self):
-        """Remove selected folder from untagged search list"""
-        selection = self.folder_listbox.curselection()
-        if selection:
-            index = selection[0]
-            self.folder_paths.pop(index)
-            self.folder_listbox.delete(index)
-
-    def find_untagged_videos(self):
-        """Find untagged videos in the selected folders"""
-        if not self.folder_paths:
-            messagebox.showinfo(self.lang_manager.get_text("no_folders"), 
-                              self.lang_manager.get_text("add_folders_to_search"))
+    def update_search_suggestions(self, tag_var):
+        """Update search tag suggestions based on current input"""
+        text = tag_var.get()
+        if not text:
+            for btn in self.search_suggestion_buttons:
+                btn.config(text="", state=tk.DISABLED)
             return
 
-        # Show progress
-        self.root.config(cursor="wait")
-        self.root.update()
+        # Get the last tag being typed
+        tags = [t.strip() for t in text.replace("，",",").split(",")]
+        current_tag = tags[-1].strip() if tags else ""
 
-        try:
-            # Get untagged videos
-            untagged_videos = self.db_manager.get_untagged_videos(self.folder_paths)
-
-            # Clear current list
-            for item in self.untagged_tree.get_children():
-                self.untagged_tree.delete(item)
-
-            # Add to tree
-            for video in untagged_videos:
-                self.untagged_tree.insert("", "end", values=(
-                    video.name,
-                    video.path,
-                    video.getSizeConverted(),
-                    video.getDateFormatted()
-                ), tags=(str(video.isDir), video.path))
-
-            # Show result
-            if not untagged_videos:
-                messagebox.showinfo(self.lang_manager.get_text("no_results"), 
-                                  self.lang_manager.get_text("no_untagged_videos"))
-
-        except Exception as e:
-            messagebox.showerror(self.lang_manager.get_text("error"), 
-                               f"{self.lang_manager.get_text('error_finding_untagged')}{str(e)}")
-        finally:
-            self.root.config(cursor="")
-
-    def tag_selected_untagged(self):
-        """Tag selected untagged videos"""
-        selection = self.untagged_tree.selection()
-        if not selection:
-            messagebox.showinfo("无选择", "请选择要标记的视频。")
+        if not current_tag:
+            for btn in self.search_suggestion_buttons:
+                btn.config(text="", state=tk.DISABLED)
             return
 
-        # Get file paths
-        file_paths = []
-        for item in selection:
-            item_data = self.untagged_tree.item(item, "tags")
-            if item_data:
-                file_paths.append(item_data[1])
-
-        if not file_paths:
-            return
-
-        # Show tag dialog
-        self.show_tag_dialog(file_paths)
-
-        # Refresh untagged list after tagging
-        self.find_untagged_videos()
-
-    def reset_app(self):
-        """Reset application state"""
-        self.current_path.set("Please select a directory")
-        self.file_list = []
-        self.sort_by_name_desc = True
-        self.sort_by_size_desc = True
-        self.sort_by_time_desc = True
-        self.set_drop_state(False)
-        self.back_btn.config(state=tk.DISABLED)
-        self.new_folder_btn.config(state=tk.DISABLED)
-
-        # Clear tree
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        # Get suggestions
+        suggestions = self.db_manager.search_similar_tags(current_tag)
+        
+        # Calculate the maximum width required for suggestions
+        max_width = self.search_suggestion_max_width  # Start with previously calculated width
+        for suggestion in suggestions:
+            suggestion_width = len(suggestion) + 2  # Add padding
+            max_width = max(max_width, suggestion_width)
+        
+        # Update all buttons to the new width for consistency
+        for btn in self.search_suggestion_buttons:
+            btn.config(width=max_width)
+        
+        # Update buttons
+        for i, btn in enumerate(self.search_suggestion_buttons):
+            if i < len(suggestions):
+                btn.config(text=suggestions[i], state=tk.NORMAL,
+                           command=lambda t=suggestions[i], ct=current_tag: replace_current_tag(tag_var, t))
+            else:
+                btn.config(text="", state=tk.DISABLED)
