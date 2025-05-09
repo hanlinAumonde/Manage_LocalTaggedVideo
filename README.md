@@ -13,6 +13,7 @@
 ```
 pyinstaller --noconfirm --onefile --console --icon "/path-to-yout-ico.ico" --name "app-name" --hide-console "hide-late"  "/path-to-main.py"
 ```
+- 注意：需要Docker已安装并配置好，且当前用户有权限运行 docker 命令
 
 ## 主要功能
 

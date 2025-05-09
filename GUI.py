@@ -5,14 +5,20 @@ from tkinter import ttk, filedialog, messagebox
 
 from tkinterdnd2 import DND_FILES
 
-from TagManage_utils import get_list_sorted, setup_styles, replace_current_tag, add_tag_to_entry
+from utils.TagManage_utils import get_list_sorted, setup_styles, replace_current_tag, add_tag_to_entry
 # Import our database manager
-from db_manager import DBManager
+from DB.db_manager import DBManager
+# Import language manager
+from utils.language_manager import LanguageManager
 
 class VideoTagApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Video Tag Manager")
+        
+        # Initialize language manager
+        self.lang_manager = LanguageManager()
+        
+        self.root.title(self.lang_manager.get_text("app_title"))
         self.root.geometry("1200x700")
         self.root.minsize(800, 600)
 
@@ -52,8 +58,62 @@ class VideoTagApp:
         self.tag_management_tab = ttk.Frame(self.notebook)
 
         # Add tabs to notebook
-        self.notebook.add(self.browse_tab, text="文件浏览")
-        self.notebook.add(self.tag_management_tab, text="标签管理")
+        self.notebook.add(self.browse_tab, text=self.lang_manager.get_text("browse_tab"))
+        self.notebook.add(self.tag_management_tab, text=self.lang_manager.get_text("tag_management_tab"))
+        
+        # Language selection frame at the top of the window
+        self.language_frame = ttk.Frame(self.root)
+        self.language_frame.pack(fill=tk.X, padx=10, pady=(0, 0))
+        
+        ttk.Label(self.language_frame, text=self.lang_manager.get_text("language")).pack(side=tk.LEFT, padx=(0, 5))
+        self.language_var = tk.StringVar(value=self.lang_manager.get_current_language())
+        
+        language_combo = ttk.Combobox(self.language_frame, textvariable=self.language_var, 
+                                      values=["chinese", "English"], width=10, state="readonly")
+        language_combo.pack(side=tk.LEFT)
+        language_combo.bind("<<ComboboxSelected>>", self.change_language)
+        
+        # Add display labels for the languages
+        ttk.Label(self.language_frame, text=" (").pack(side=tk.LEFT)
+        ttk.Label(self.language_frame, text=self.lang_manager.get_text("chinese")).pack(side=tk.LEFT)
+        ttk.Label(self.language_frame, text=" / ").pack(side=tk.LEFT)
+        ttk.Label(self.language_frame, text=self.lang_manager.get_text("English")).pack(side=tk.LEFT)
+        ttk.Label(self.language_frame, text=")").pack(side=tk.LEFT)
+
+    def change_language(self, event=None):
+        """Change the application language"""
+        new_language = self.language_var.get()
+        if self.lang_manager.set_language(new_language):
+            # Update UI text
+            self.update_ui_language()
+    
+    def update_ui_language(self):
+        """Update all UI elements with the new language"""
+        # Update window title
+        self.root.title(self.lang_manager.get_text("app_title"))
+        
+        # Update notebook tabs
+        self.notebook.tab(self.browse_tab, text=self.lang_manager.get_text("browse_tab"))
+        self.notebook.tab(self.tag_management_tab, text=self.lang_manager.get_text("tag_management_tab"))
+        
+        # Recreate both tabs with new language
+        self.setup_browse_tab()
+        self.setup_tag_management_tab()
+        
+        # Update language selection labels
+        for widget in self.language_frame.winfo_children():
+            if isinstance(widget, ttk.Label):
+                if widget.cget("text") == " (":
+                    continue
+                elif widget.cget("text") == " / ":
+                    continue
+                elif widget.cget("text") == ")":
+                    continue
+                elif widget.cget("text").startswith(self.lang_manager.get_text("language").split(":")[0]):
+                    widget.config(text=self.lang_manager.get_text("language"))
+                elif widget.cget("text") in ["中文", "English"]:
+                    # These labels don't need to be translated as they show the actual language names
+                    pass
 
     def setup_notebook(self):
         """Set up the tabs with their content"""
@@ -65,25 +125,29 @@ class VideoTagApp:
 
     def setup_browse_tab(self):
         """Setup the Browse Files tab"""
+        # Clear existing content if any
+        for widget in self.browse_tab.winfo_children():
+            widget.destroy()
+            
         # Top frame for directory selection and navigation
         dir_frame = ttk.Frame(self.browse_tab)
         dir_frame.pack(fill=tk.X, padx=10, pady=10)
 
         # Current path display
-        ttk.Label(dir_frame, text="目录:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(dir_frame, text=self.lang_manager.get_text("directory")).pack(side=tk.LEFT, padx=(0, 5))
         path_entry = ttk.Entry(dir_frame, textvariable=self.current_path, width=50, state="readonly")
         path_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
         # Browse button
-        browse_btn = ttk.Button(dir_frame, text="浏览", style="Accent.TButton", command=self.select_directory)
+        browse_btn = ttk.Button(dir_frame, text=self.lang_manager.get_text("browse"), style="Accent.TButton", command=self.select_directory)
         browse_btn.pack(side=tk.LEFT, padx=5)
 
         # Back button
-        self.back_btn = ttk.Button(dir_frame, text="返回", command=self.go_back, state=tk.DISABLED)
+        self.back_btn = ttk.Button(dir_frame, text=self.lang_manager.get_text("back"), command=self.go_back, state=tk.DISABLED)
         self.back_btn.pack(side=tk.LEFT, padx=5)
 
         # Create new folder button
-        self.new_folder_btn = ttk.Button(dir_frame, text="新建文件夹", command=self.create_folder_dialog,
+        self.new_folder_btn = ttk.Button(dir_frame, text=self.lang_manager.get_text("new_folder"), command=self.create_folder_dialog,
                                          state=tk.DISABLED)
         self.new_folder_btn.pack(side=tk.LEFT, padx=5)
 
@@ -91,15 +155,15 @@ class VideoTagApp:
         search_frame = ttk.Frame(self.browse_tab)
         search_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        ttk.Label(search_frame, text="搜索:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(search_frame, text=self.lang_manager.get_text("search")).pack(side=tk.LEFT, padx=(0, 5))
         self.search_var = tk.StringVar()
         search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=30)
         search_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
-        search_btn = ttk.Button(search_frame, text="搜索", command=lambda: self.search_files(self.search_var.get()))
+        search_btn = ttk.Button(search_frame, text=self.lang_manager.get_text("search_btn"), command=lambda: self.search_files(self.search_var.get()))
         search_btn.pack(side=tk.LEFT, padx=5)
 
-        end_search_btn = ttk.Button(search_frame, text="清除搜索", command=lambda: self.go_back(True))
+        end_search_btn = ttk.Button(search_frame, text=self.lang_manager.get_text("clear_search"), command=lambda: self.go_back(True))
         end_search_btn.pack(side=tk.LEFT, padx=5)
 
         # Main file tree frame
@@ -116,19 +180,19 @@ class VideoTagApp:
 
         # Create Treeview for files
         self.tree = ttk.Treeview(tree_frame, columns=("type", "name", "size", "time", "tags"),
-                                 show="headings", yscrollcommand=vsb.set, xscrollcommand=hsb.set,
-                                 selectmode="extended")
+                                show="headings", yscrollcommand=vsb.set, xscrollcommand=hsb.set,
+                                selectmode="extended")
 
         # Configure scrollbars
         vsb.config(command=self.tree.yview)
         hsb.config(command=self.tree.xview)
 
         # Configure tree columns
-        self.tree.heading("type", text="类型")
-        self.tree.heading("name", text="名称", command=lambda: self.sort_by("name"))
-        self.tree.heading("size", text="大小", command=lambda: self.sort_by("size"))
-        self.tree.heading("time", text="修改时间", command=lambda: self.sort_by("time"))
-        self.tree.heading("tags", text="标签")
+        self.tree.heading("type", text=self.lang_manager.get_text("type"))
+        self.tree.heading("name", text=self.lang_manager.get_text("name"), command=lambda: self.sort_by("name"))
+        self.tree.heading("size", text=self.lang_manager.get_text("size"), command=lambda: self.sort_by("size"))
+        self.tree.heading("time", text=self.lang_manager.get_text("time"), command=lambda: self.sort_by("time"))
+        self.tree.heading("tags", text=self.lang_manager.get_text("tags"))
 
         # Set column widths
         self.tree.column("type", width=70, anchor=tk.CENTER)
@@ -154,16 +218,24 @@ class VideoTagApp:
         tag_buttons_frame = ttk.Frame(self.browse_tab)
         tag_buttons_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        tag_btn = ttk.Button(tag_buttons_frame, text="为选中文件添加标签", style="Accent.TButton",
-                             command=self.tag_selected_files)
+        tag_btn = ttk.Button(tag_buttons_frame, text=self.lang_manager.get_text("add_tags"), style="Accent.TButton",
+                            command=self.tag_selected_files)
         tag_btn.pack(side=tk.LEFT, padx=5)
 
-        remove_tag_btn = ttk.Button(tag_buttons_frame, text="移除标签",
-                                    command=self.remove_tags_from_selected)
+        remove_tag_btn = ttk.Button(tag_buttons_frame, text=self.lang_manager.get_text("remove_tags"),
+                                   command=self.remove_tags_from_selected)
         remove_tag_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Update the treeview if we already have files loaded
+        if self.file_list:
+            self.update_treeview()
 
     def setup_tag_management_tab(self):
         """Setup the Tag Management tab"""
+        # Clear existing content if any
+        for widget in self.tag_management_tab.winfo_children():
+            widget.destroy()
+            
         # 创建一个框架作为容器，确保它填充整个标签页
         main_frame = ttk.Frame(self.tag_management_tab)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -210,14 +282,14 @@ class VideoTagApp:
         top_tags_frame = ttk.Frame(content_frame)
         top_tags_frame.pack(fill=tk.X, pady=10)
 
-        ttk.Label(top_tags_frame, text="最多使用标签", font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W)
+        ttk.Label(top_tags_frame, text=self.lang_manager.get_text("top_tags"), font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W)
 
         # Reduce the height of the Treeview
         self.top_tags_tree = ttk.Treeview(top_tags_frame, columns=("name", "count"),
-                                          show="headings", height=5)
+                                        show="headings", height=5)
 
-        self.top_tags_tree.heading("name", text="标签名称")
-        self.top_tags_tree.heading("count", text="使用次数")
+        self.top_tags_tree.heading("name", text=self.lang_manager.get_text("tag_name"))
+        self.top_tags_tree.heading("count", text=self.lang_manager.get_text("usage_count"))
 
         self.top_tags_tree.column("name", width=200)
         self.top_tags_tree.column("count", width=100)
@@ -225,28 +297,28 @@ class VideoTagApp:
         self.top_tags_tree.pack(fill=tk.X, expand=True, pady=5)
         self.top_tags_tree.bind("<Double-1>", self.on_tag_double_click)
 
-        refresh_btn = ttk.Button(top_tags_frame, text="刷新", command=self.refresh_top_tags)
+        refresh_btn = ttk.Button(top_tags_frame, text=self.lang_manager.get_text("refresh"), command=self.refresh_top_tags)
         refresh_btn.pack(anchor=tk.E, pady=5)
 
         # Search by tag section
         search_tag_frame = ttk.Frame(content_frame)
         search_tag_frame.pack(fill=tk.X, pady=10)
 
-        ttk.Label(search_tag_frame, text="按标签搜索:", font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W)
+        ttk.Label(search_tag_frame, text=self.lang_manager.get_text("search_by_tag"), font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W)
 
         self.tag_search_var = tk.StringVar()
         tag_search_entry = ttk.Entry(search_tag_frame, textvariable=self.tag_search_var)
         tag_search_entry.pack(fill=tk.X, pady=5)
 
-        search_tag_btn = ttk.Button(search_tag_frame, text="搜索", style="Accent.TButton",
-                                    command=lambda: self.search_videos_by_tag(self.tag_search_var.get()))
+        search_tag_btn = ttk.Button(search_tag_frame, text=self.lang_manager.get_text("search_btn"), style="Accent.TButton",
+                                  command=lambda: self.search_videos_by_tag(self.tag_search_var.get()))
         search_tag_btn.pack(fill=tk.X, pady=5)
 
         # Untagged videos section
         untagged_frame = ttk.Frame(content_frame)
         untagged_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
-        ttk.Label(untagged_frame, text="未标记视频", font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W)
+        ttk.Label(untagged_frame, text=self.lang_manager.get_text("untagged_videos"), font=('Segoe UI', 12, 'bold')).pack(anchor=tk.W)
 
         folders_frame = ttk.Frame(untagged_frame)
         folders_frame.pack(fill=tk.X, pady=5)
@@ -258,16 +330,16 @@ class VideoTagApp:
         folder_btn_frame = ttk.Frame(folders_frame)
         folder_btn_frame.pack(side=tk.LEFT, padx=5)
 
-        add_folder_btn = ttk.Button(folder_btn_frame, text="添加文件夹",
-                                    command=self.add_folder_for_untagged)
+        add_folder_btn = ttk.Button(folder_btn_frame, text=self.lang_manager.get_text("add_folder"),
+                                  command=self.add_folder_for_untagged)
         add_folder_btn.pack(fill=tk.X, pady=2)
 
-        remove_folder_btn = ttk.Button(folder_btn_frame, text="移除文件夹",
-                                       command=self.remove_folder_for_untagged)
+        remove_folder_btn = ttk.Button(folder_btn_frame, text=self.lang_manager.get_text("remove_folder"),
+                                     command=self.remove_folder_for_untagged)
         remove_folder_btn.pack(fill=tk.X, pady=2)
 
-        find_untagged_btn = ttk.Button(untagged_frame, text="查找未标记视频",
-                                       command=self.find_untagged_videos)
+        find_untagged_btn = ttk.Button(untagged_frame, text=self.lang_manager.get_text("find_untagged"),
+                                     command=self.find_untagged_videos)
         find_untagged_btn.pack(fill=tk.X, pady=5)
 
         # 确保未标记视频的树形视图占据剩余空间
@@ -275,12 +347,12 @@ class VideoTagApp:
         tree_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
         self.untagged_tree = ttk.Treeview(tree_frame, columns=("name", "path", "size", "time"),
-                                          show="headings", height=10)
+                                        show="headings", height=10)
 
-        self.untagged_tree.heading("name", text="名称")
-        self.untagged_tree.heading("path", text="路径")
-        self.untagged_tree.heading("size", text="大小")
-        self.untagged_tree.heading("time", text="修改时间")
+        self.untagged_tree.heading("name", text=self.lang_manager.get_text("name"))
+        self.untagged_tree.heading("path", text=self.lang_manager.get_text("path"))
+        self.untagged_tree.heading("size", text=self.lang_manager.get_text("size"))
+        self.untagged_tree.heading("time", text=self.lang_manager.get_text("time"))
 
         self.untagged_tree.column("name", width=200)
         self.untagged_tree.column("path", width=300)
@@ -296,8 +368,8 @@ class VideoTagApp:
         untagged_hsb.pack(side=tk.BOTTOM, fill=tk.X)
         self.untagged_tree.pack(fill=tk.BOTH, expand=True)
 
-        tag_untagged_btn = ttk.Button(untagged_frame, text="标记选中视频", style="Accent.TButton",
-                                      command=self.tag_selected_untagged)
+        tag_untagged_btn = ttk.Button(untagged_frame, text=self.lang_manager.get_text("tag_selected"), style="Accent.TButton",
+                                    command=self.tag_selected_untagged)
         tag_untagged_btn.pack(fill=tk.X, pady=5)
 
         # 初始加载热门标签
@@ -341,7 +413,7 @@ class VideoTagApp:
     def create_folder_dialog(self):
         """Show dialog to create a new folder"""
         dialog = tk.Toplevel(self.root)
-        dialog.title("新建文件夹")
+        dialog.title(self.lang_manager.get_text("new_folder"))
         dialog.geometry("300x120")
         dialog.resizable(False, False)
         dialog.transient(self.root)
@@ -352,7 +424,7 @@ class VideoTagApp:
         y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (120 // 2)
         dialog.geometry(f"+{x}+{y}")
 
-        ttk.Label(dialog, text="文件夹名称:").pack(pady=(10, 5))
+        ttk.Label(dialog, text=self.lang_manager.get_text("folder_name")).pack(pady=(10, 5))
 
         name_var = tk.StringVar()
         name_entry = ttk.Entry(dialog, textvariable=name_var, width=40)
@@ -362,17 +434,18 @@ class VideoTagApp:
         btn_frame = ttk.Frame(dialog)
         btn_frame.pack(pady=10, fill=tk.X)
 
-        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT, padx=(5, 10))
-        ttk.Button(btn_frame, text="创建", style="Accent.TButton",
-                   command=lambda: self.create_folder(name_var.get(), dialog)).pack(side=tk.RIGHT)
+        ttk.Button(btn_frame, text=self.lang_manager.get_text("cancel"), command=dialog.destroy).pack(side=tk.RIGHT, padx=(5, 10))
+        ttk.Button(btn_frame, text=self.lang_manager.get_text("create"), style="Accent.TButton",
+                command=lambda: self.create_folder(name_var.get(), dialog)).pack(side=tk.RIGHT)
 
         # Bind Enter key to create folder
         dialog.bind("<Return>", lambda e: self.create_folder(name_var.get(), dialog))
-
+        
     def create_folder(self, folder_name, dialog):
         """Create a new folder with the given name"""
         if not folder_name.strip():
-            messagebox.showwarning("无效名称", "请输入文件夹名称。")
+            messagebox.showwarning(self.lang_manager.get_text("invalid_name"), 
+                                  self.lang_manager.get_text("enter_folder_name"))
             return
 
         try:
@@ -382,7 +455,8 @@ class VideoTagApp:
             self.update_treeview()
             dialog.destroy()
         except OSError as e:
-            messagebox.showerror("错误", f"创建文件夹失败: {str(e)}")
+            messagebox.showerror(self.lang_manager.get_text("error"), 
+                               f"{self.lang_manager.get_text('create_folder_failed')}{str(e)}")
 
     def on_double_click(self, event):
         """Handle double-click on file/folder in tree"""
@@ -468,8 +542,9 @@ class VideoTagApp:
         path = item_data[1]
 
         # Confirm deletion
-        message = f"您确定要删除这个{'文件夹' if is_dir else '文件'}吗?"
-        if not messagebox.askyesno("确认删除", message):
+        message = self.lang_manager.get_text("confirm_delete_msg").format(
+            self.lang_manager.get_text("folder") if is_dir else self.lang_manager.get_text("video"))
+        if not messagebox.askyesno(self.lang_manager.get_text("confirm_delete"), message):
             return
 
         try:
@@ -481,7 +556,8 @@ class VideoTagApp:
             self.file_list = self.db_manager.get_calculated_list(self.current_path.get())
             self.update_treeview()
         except OSError as e:
-            messagebox.showerror("错误", f"删除失败: {str(e)}")
+            messagebox.showerror(self.lang_manager.get_text("error"), 
+                              f"{self.lang_manager.get_text('delete_failed')}{str(e)}")
 
     def handle_drop(self, event):
         """Handle files dropped onto the tree"""
@@ -567,20 +643,21 @@ class VideoTagApp:
             tags_text = ", ".join(item.tags) if item.tags else ""
 
             self.tree.insert("", "end", values=(
-                "文件夹" if item.isDir else "视频",
+                self.lang_manager.get_text("folder") if item.isDir else self.lang_manager.get_text("video"),
                 item.name,
                 item.getSizeConverted(),
                 item.getDateFormatted(),
                 tags_text
             ), tags=(str(item.isDir), item.path))
-
+    
     def tag_selected_files(self, items=None):
         """Show dialog to add tags to selected files"""
         if items is None:
             items = self.tree.selection()
 
         if not items:
-            messagebox.showinfo("无选择", "请选择要标记的文件。")
+            messagebox.showinfo(self.lang_manager.get_text("no_selection"), 
+                                self.lang_manager.get_text("select_files"))
             return
 
         # Get file paths
@@ -591,7 +668,8 @@ class VideoTagApp:
                 file_paths.append(item_data[1])
 
         if not file_paths:
-            messagebox.showinfo("无文件", "请选择视频文件进行标记（不要选择文件夹）。")
+            messagebox.showinfo(self.lang_manager.get_text("no_files"), 
+                                self.lang_manager.get_text("select_video_files"))
             return
 
         # Create tagging dialog
@@ -600,7 +678,7 @@ class VideoTagApp:
     def show_tag_dialog(self, file_paths):
         """Show dialog to add tags to files"""
         dialog = tk.Toplevel(self.root)
-        dialog.title(f"添加标签到 {len(file_paths)} 个文件")
+        dialog.title(self.lang_manager.get_text("add_tags_to").format(len(file_paths)))
         dialog.geometry("500x450")  # Made taller to accommodate the new checkbox
         dialog.transient(self.root)
         dialog.grab_set()
@@ -613,41 +691,38 @@ class VideoTagApp:
         # File info
         if len(file_paths) == 1:
             file_name = os.path.basename(file_paths[0])
-            ttk.Label(dialog, text=f"文件: {file_name}", font=('Segoe UI', 10, 'bold')).pack(pady=(10, 5), padx=10,
-                                                                                             anchor=tk.W)
+            ttk.Label(dialog, text=f"{self.lang_manager.get_text('file')}{file_name}", 
+                     font=('Segoe UI', 10, 'bold')).pack(pady=(10, 5), padx=10, anchor=tk.W)
         else:
-            ttk.Label(dialog, text=f"已选择: {len(file_paths)} 个文件", font=('Segoe UI', 10, 'bold')).pack(
-                pady=(10, 5), padx=10, anchor=tk.W)
+            ttk.Label(dialog, text=self.lang_manager.get_text("selected").format(len(file_paths)), 
+                     font=('Segoe UI', 10, 'bold')).pack(pady=(10, 5), padx=10, anchor=tk.W)
 
         # Current tags (if single file)
         current_tags = []
         if len(file_paths) == 1:
             current_tags = self.db_manager.get_tags_for_file(file_paths[0])
             if current_tags:
-                ttk.Label(dialog, text="当前标签:").pack(pady=(5, 0), padx=10, anchor=tk.W)
+                ttk.Label(dialog, text=self.lang_manager.get_text("current_tags")).pack(pady=(5, 0), padx=10, anchor=tk.W)
                 tag_text = ", ".join(current_tags)
                 ttk.Label(dialog, text=tag_text).pack(pady=(0, 10), padx=10, anchor=tk.W)
 
         # Append tags checkbox
         append_var = tk.BooleanVar(value=True)  # Default to append mode
-        append_check = ttk.Checkbutton(dialog, text="保留现有标签 (添加新标签而不替换现有标签)",
-                                       variable=append_var)
+        append_check = ttk.Checkbutton(dialog, text=self.lang_manager.get_text("keep_existing_tags"),
+                                     variable=append_var)
         append_check.pack(pady=5, padx=10, anchor=tk.W)
 
         # Tag input
-        ttk.Label(dialog, text="输入标签 (用逗号分隔):").pack(pady=(5, 0), padx=10, anchor=tk.W)
+        ttk.Label(dialog, text=self.lang_manager.get_text("enter_tags")).pack(pady=(5, 0), padx=10, anchor=tk.W)
 
         tag_var = tk.StringVar()
-        # Don't auto-populate with current tags to make it clearer it's append mode
-        # if current_tags and not append_var.get():
-        #     tag_var.set(", ".join(current_tags))
 
         tag_entry = ttk.Entry(dialog, textvariable=tag_var, width=50)
         tag_entry.pack(pady=(0, 10), padx=10, fill=tk.X)
         tag_entry.focus_set()
 
         # Top tags for suggestions
-        ttk.Label(dialog, text="最多使用标签 (点击添加):").pack(pady=(5, 0), padx=10, anchor=tk.W)
+        ttk.Label(dialog, text=self.lang_manager.get_text("top_tags_click")).pack(pady=(5, 0), padx=10, anchor=tk.W)
 
         # Frame for tag buttons
         tags_frame = ttk.Frame(dialog)
@@ -661,7 +736,7 @@ class VideoTagApp:
 
             # Create tag button
             tag_btn = ttk.Button(tags_frame, text=tag_name,
-                                 command=lambda t=tag_name: add_tag_to_entry(tag_var, t))
+                               command=lambda t=tag_name: add_tag_to_entry(tag_var, t))
             tag_btn.grid(row=row, column=col, padx=2, pady=2, sticky=tk.W)
 
             # Update grid position
@@ -671,7 +746,7 @@ class VideoTagApp:
                 row += 1
 
         # Tag suggestion based on typing
-        ttk.Label(dialog, text="标签建议:").pack(pady=(5, 0), padx=10, anchor=tk.W)
+        ttk.Label(dialog, text=self.lang_manager.get_text("tag_suggestions")).pack(pady=(5, 0), padx=10, anchor=tk.W)
 
         suggestion_frame = ttk.Frame(dialog)
         suggestion_frame.pack(pady=(0, 10), padx=10, fill=tk.X)
@@ -692,14 +767,14 @@ class VideoTagApp:
         btn_frame = ttk.Frame(dialog)
         btn_frame.pack(pady=10, fill=tk.X, side=tk.BOTTOM)
 
-        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT, padx=(5, 10))
-        ttk.Button(btn_frame, text="保存标签", style="Accent.TButton",
-                   command=lambda: self.save_tags(file_paths, tag_var.get(), dialog, append_var.get())).pack(
+        ttk.Button(btn_frame, text=self.lang_manager.get_text("cancel"), command=dialog.destroy).pack(side=tk.RIGHT, padx=(5, 10))
+        ttk.Button(btn_frame, text=self.lang_manager.get_text("save_tags"), style="Accent.TButton",
+                 command=lambda: self.save_tags(file_paths, tag_var.get(), dialog, append_var.get())).pack(
             side=tk.RIGHT)
 
         # Bind Enter key (make sure it also uses the append value)
         dialog.bind("<Return>", lambda e: self.save_tags(file_paths, tag_var.get(), dialog, append_var.get()))
-
+    
     def update_tag_suggestions(self, tag_var):
         """Update tag suggestions based on current input"""
         text = tag_var.get()
@@ -762,7 +837,8 @@ class VideoTagApp:
             items = self.tree.selection()
 
         if not items:
-            messagebox.showinfo("无选择", "请选择要移除标签的文件。")
+            messagebox.showinfo(self.lang_manager.get_text("no_selection"), 
+                              self.lang_manager.get_text("select_files"))
             return
 
         # Get file paths
@@ -773,12 +849,13 @@ class VideoTagApp:
                 file_paths.append(item_data[1])
 
         if not file_paths:
-            messagebox.showinfo("无文件", "请选择视频文件（不要选择文件夹）。")
+            messagebox.showinfo(self.lang_manager.get_text("no_files"), 
+                              self.lang_manager.get_text("select_video_files"))
             return
 
         # Confirm remove
-        message = f"确定要移除 {len(file_paths)} 个文件的所有标签吗?"
-        if not messagebox.askyesno("确认", message):
+        message = self.lang_manager.get_text("confirm_remove_tags").format(len(file_paths))
+        if not messagebox.askyesno(self.lang_manager.get_text("confirm"), message):
             return
 
         try:
@@ -792,7 +869,8 @@ class VideoTagApp:
             self.refresh_top_tags()
 
         except Exception as e:
-            messagebox.showerror("错误", f"移除标签失败: {str(e)}")
+            messagebox.showerror(self.lang_manager.get_text("error"), 
+                               f"{self.lang_manager.get_text('remove_tags_failed')}{str(e)}")
 
     def refresh_top_tags(self):
         """Refresh the top tags display"""
@@ -823,7 +901,8 @@ class VideoTagApp:
     def search_videos_by_tag(self, tag):
         """Search for videos with the given tag"""
         if not tag.strip():
-            messagebox.showinfo("缺少标签", "请输入要搜索的标签。")
+            messagebox.showinfo(self.lang_manager.get_text("missing_tag"), 
+                              self.lang_manager.get_text("enter_search_tag"))
             return
 
         # Switch to browse tab
@@ -833,17 +912,18 @@ class VideoTagApp:
         tagged_videos = self.db_manager.find_videos_by_tag(tag)
 
         if not tagged_videos:
-            messagebox.showinfo("无结果", f"未找到带有标签 '{tag}' 的视频。")
+            messagebox.showinfo(self.lang_manager.get_text("no_results"), 
+                              self.lang_manager.get_text("no_videos_with_tag").format(tag))
             return
 
         # Update current path for context
         self.path_before_search = self.current_path.get()
-        self.current_path.set(f"标签搜索结果: {tag}")
+        self.current_path.set(f"{self.lang_manager.get_text('tag_search_results').format(tag)}")
 
         # Update file list and view
         self.file_list = tagged_videos
         self.update_treeview()
-
+    
     def add_folder_for_untagged(self):
         """Add a folder to search for untagged videos"""
         folder = filedialog.askdirectory()
@@ -864,7 +944,8 @@ class VideoTagApp:
     def find_untagged_videos(self):
         """Find untagged videos in the selected folders"""
         if not self.folder_paths:
-            messagebox.showinfo("无文件夹", "请添加要搜索的文件夹。")
+            messagebox.showinfo(self.lang_manager.get_text("no_folders"), 
+                              self.lang_manager.get_text("add_folders_to_search"))
             return
 
         # Show progress
@@ -890,10 +971,12 @@ class VideoTagApp:
 
             # Show result
             if not untagged_videos:
-                messagebox.showinfo("无结果", "在选定的文件夹中未找到未标记的视频。")
+                messagebox.showinfo(self.lang_manager.get_text("no_results"), 
+                                  self.lang_manager.get_text("no_untagged_videos"))
 
         except Exception as e:
-            messagebox.showerror("错误", f"查找未标记视频时出错: {str(e)}")
+            messagebox.showerror(self.lang_manager.get_text("error"), 
+                               f"{self.lang_manager.get_text('error_finding_untagged')}{str(e)}")
         finally:
             self.root.config(cursor="")
 
