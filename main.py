@@ -1,8 +1,6 @@
 import os
-import subprocess
 import sys
 import tkinter as tk
-from tkinter import messagebox
 
 # Check for required libraries
 try:
@@ -18,7 +16,7 @@ except ImportError:
     sys.exit(1)
 
 # Import our custom modules
-from GUI import VideoTagApp
+from GUI.main_GUI import VideoTagApp
 from utils.language_manager import LanguageManager
 from DB.setup_db import setup_mongodb
 from DB.setup_db import on_close
