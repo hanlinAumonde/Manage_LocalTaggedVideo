@@ -76,7 +76,7 @@ def setup_styles():
 
 def add_tag_to_entry(tag_var, new_tag):
     """Add a tag to the entry field"""
-    current_tags = [t.strip() for t in tag_var.get().split(",") if t.strip()]
+    current_tags = [t.strip() for t in tag_var.get().replace("，",",").split(",") if t.strip()]
 
     # Add tag if not already in list
     if new_tag not in current_tags:
@@ -88,7 +88,7 @@ def add_tag_to_entry(tag_var, new_tag):
 def replace_current_tag(tag_var, new_tag):
     """Replace the current tag being typed with a suggestion"""
     text = tag_var.get()
-    tags = [t.strip() for t in text.split(",")]
+    tags = [t.strip() for t in text.replace("，",",").split(",")]
 
     # Replace the last tag
     if tags:

@@ -290,8 +290,15 @@ class BrowseTab:
 
         try:
             if is_dir:
+                # Remove all tags from files in the directory before deleting
+                for file in os.listdir(path):
+                    file_path = os.path.join(path, file)
+                    if os.path.isfile(file_path):
+                        self.db_manager.remove_tags_from_file(file_path)
                 shutil.rmtree(path)
             else:
+                # Remove tags from the file before deleting
+                self.db_manager.remove_tags_from_file(path)
                 os.remove(path)
 
             self.file_list = self.db_manager.get_calculated_list(self.current_path.get())
@@ -347,7 +354,8 @@ class BrowseTab:
         filtered_list = []
 
         for item in self.file_list:
-            if search_text.lower() in item.name.lower():
+            # supprot for special characters
+            if (search_text in item.name) or (search_text.lower() in item.name.lower()):
                 filtered_list.append(item)
 
         self.file_list = filtered_list
